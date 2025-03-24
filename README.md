@@ -15,6 +15,6 @@ A Python tool that collects GitHub repository traffic data, including clones (an
  - [ ] Adding view count tracking
  - [ ] Improving data organization
  - [ ] Potentially adding charts for visualization
- - [ ] Stores data in an Excel sheet for easy access
+ - [ ] Storing data in an Excel sheet for easy access
 
 ***This tool is ideal for developers who want to monitor their repository traffic efficiently. Contributions and feedback are welcome!*** 😊
