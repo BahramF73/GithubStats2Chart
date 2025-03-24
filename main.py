@@ -1,18 +1,14 @@
 import os
-
-from IPython.core.display_functions import display
 from github import Github
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from openpyxl import load_workbook
 from dotenv import load_dotenv
 
-# Retrieve token from environment variable
 # Authentication is defined via GitHub.Auth
 from github import Auth
-from paste.evalexception.middleware import input_form
 
+# Retrieve token from environment variable
 load_dotenv()
 # Using an access token
 auth = Auth.Token(os.getenv("GITHUB_TOKEN"))
