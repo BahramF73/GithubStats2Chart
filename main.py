@@ -29,8 +29,9 @@ date_strs = [d.strftime("%Y-%m-%d") for d in pd.date_range(start=start_date, end
 # 📂 Attempt to open the CSV file
 try:
     df=pd.read_csv(input_file_path, index_col=0)
-except FileNotFoundError:
-    raise FileNotFoundError(f"  ->  -> ⚠ File '{input_file_path}' not found! Please create the file first. <-  <-")
+except (pd.errors.EmptyDataError, FileNotFoundError):
+    print(f"File: {input_file_path} does not exists or is corrupted!")
+    df=pd.DataFrame()
 
 # ✨ Check and add new dates to DataFrame
 for date in date_strs:
