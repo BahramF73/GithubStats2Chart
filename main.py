@@ -72,6 +72,10 @@ for repo in g.get_user().get_repos():
 # Replace All NaN values with 0
 df=df.fillna(0).astype(np.int16)
 
+overwrite=input(f"Do you want to overwrite on {input_file_path}? (Y)es or (N)o: ")
+if overwrite.lower()==("y" or "yes"):
+    output_file_path=input_file_path
+
 # 🖫 Save Data as CSV file
 df.to_csv(output_file_path)
 
