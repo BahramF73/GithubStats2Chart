@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 from github import Auth, Github
-from .convert_data import formats, ConvertData
+from .convert_data import Formats, ConvertData,formats
 
 
 def check_env():
@@ -18,7 +18,7 @@ class HandleData:
     This Library get data from GitHub and give us and pandas.DataFrame of Clones or Views
     """
 
-    def __init__(self, input_file_path: str = "", output_file_path: str = "output",format_:formats=formats.CSV, token: str = None,
+    def __init__(self, input_file_path: str = "", output_file_path: str = "output",format_:Formats=formats.CSV, token: str = None,
                  period: int = 13):
         """
         Parameter:

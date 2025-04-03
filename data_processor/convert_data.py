@@ -5,7 +5,7 @@ formats=Formats(".csv",".xlsx")
 
 class ConvertData:
 
-    def __init__(self,format_:formats,output_file_path:str):
+    def __init__(self,format_:Formats,output_file_path:str):
         self.format_=format_
         self.output_file_path=output_file_path
         if not (format_==formats.CSV or format_==formats.EXCEL):
