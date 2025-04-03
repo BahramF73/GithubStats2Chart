@@ -1,84 +1,37 @@
-import os
-from github import Github
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-from dotenv import load_dotenv
+import concurrent.futures
+from tkinter import Tk, ttk, BooleanVar, Checkbutton, Button
+from data_processor import HandleData
 
-# Authentication is defined via GitHub.Auth
-from github import Auth
+def run_handle_data(input_file, output_file):
+    handle_data = HandleData(input_file_path=input_file, output_file_path=output_file)
+    handle_data.save_data()
+    print(f"\n✅ Data has been updated and saved as {handle_data.output_file_path}!")
 
-# Retrieve token from environment variable
-load_dotenv()
-# Using an access token
-auth = Auth.Token(os.getenv("GITHUB_TOKEN"))
+def start_data_processing(input_file, output_file):
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        executor.submit(run_handle_data, input_file, output_file)
 
-# Set input and output files name
-input_file_path = "Book1.csv"
-output_file_path = "Book1 new.csv"
+def main():
+    root = Tk()
+    frm = ttk.Frame(root, padding=10, height=100, width=100)
+    frm.grid()
 
-# Authenticate with GitHub
-g = Github(auth=auth)
+    overwrite_var = BooleanVar()
+    overwrite_check = Checkbutton(frm, text="Overwrite", variable=overwrite_var)
+    overwrite_check.grid(column=0, row=0)
 
-# 📅 Define the time range for retrieving data (last 13 days)
-today = datetime.now()
-start_date = today - timedelta(days=13)  # Only the last 13 days
-date_strs = [d.strftime("%Y-%m-%d") for d in pd.date_range(start=start_date, end=today, freq="D")]
+    def on_start():
+        input_file = "Book1"
+        output_file = "Book1 new"
+        if overwrite_var.get():
+            output_file = input_file
+        start_data_processing(input_file, output_file)
 
+    start_button = Button(frm, text="Start", command=on_start)
+    start_button.grid(column=0, row=1)
 
-# 📂 Attempt to open the CSV file
-try:
-    df=pd.read_csv(input_file_path, index_col=0)
-except (pd.errors.EmptyDataError, FileNotFoundError):
-    print(f"File: {input_file_path} does not exists or is corrupted!")
-    df=pd.DataFrame()
+    # Start the Tkinter main loop
+    root.mainloop()
 
-# ✨ Check and add new dates to DataFrame
-for date in date_strs:
-    if date not in df.columns:
-        df[date] = 0
-
-
-# 📊 Retrieve clone data from GitHub
-# Loop checks each repo one by one
-for repo in g.get_user().get_repos():
-    if repo.private:
-        continue
-
-    print(f"🔍 Retrieving data for repository: {repo.name}...")
-
-    try:
-        clone_data = repo.get_clones_traffic(per="day")
-        if not clone_data or "clones" not in clone_data.raw_data:
-            print(f"  ->  -> ⚠ Clone data for {repo.name} is not available. <-  <-")
-            continue
-
-        # Create object of clone count {"date":count, "date":count, ....}
-        clone_count = {str(data["timestamp"])[:10]: data["count"] for data in clone_data.raw_data["clones"]}
-
-        if repo.name not in df.index:
-            # If repository is not in the DataFrame add it and set counts 0
-            print(f"  ->  -> ⚠ New repository ({repo.name}) detected, updating data... <-  <-")
-            df.loc[repo.name]=0
-
-        # Update the repository data
-        for date in date_strs:
-            if date in clone_count:
-                df.at[repo.name, date] = clone_count[date]
-
-    except Exception as e:
-        print(f"  ->  -> ❌ Error retrieving data for {repo.name}: {e} <-  <-")
-
-# Replace All NaN values with 0
-df=df.fillna(0).astype(np.int16)
-
-overwrite=input(f"Do you want to overwrite on {input_file_path}? (Y)es or (N)o: ")
-if overwrite.lower()==("y" or "yes"):
-    output_file_path=input_file_path
-
-# 🖫 Save Data as CSV file
-df.to_csv(output_file_path)
-
-g.close()
-
-print(f"\n✅ Data has been updated and saved as {output_file_path}!")
+if __name__ == "__main__":
+    main()
