@@ -44,6 +44,7 @@ class HandleData:
         self.auth = Auth.Token(self.token)
         self.g = Github(auth=self.auth)
         self.period = period
+        self.app_is_running = True
 
     def __convert_date__(self) -> list[str]:
         """
@@ -79,6 +80,9 @@ class HandleData:
         # Loop checks each repo one by one
         df=self.__get_local_data__()
         for repo in self.g.get_user().get_repos():
+            if self.app_is_running is False:
+                print("❌ Application is shutting down...")
+                exit(0)
             if repo.private:
                 continue
 
@@ -109,8 +113,15 @@ class HandleData:
                 print(f"  ->  -> ❌ Error retrieving data for {repo.name}: {e} <-  <-")
         return df
     def save_data(self):
+        if self.app_is_running is False:
+                print("❌ Application is shutting down...")
+                exit(0)
         df = self.__get_data__()
         if df is not None:
             converter = ConvertData(format_=self.format_, output_file_path=f"{self.output_file_path}")
             converter.save(df)
+        self.g.close()
+    
+    def shutdown(self):
+        self.app_is_running = False
         self.g.close()

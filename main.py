@@ -2,7 +2,10 @@ import concurrent.futures
 from tkinter import Tk, ttk, BooleanVar, Checkbutton, Button
 from data_processor import HandleData
 
+handle_data:HandleData= None
+
 def run_handle_data(input_file, output_file):
+    global handle_data
     handle_data = HandleData(input_file_path=input_file, output_file_path=output_file)
     handle_data.save_data()
     print(f"\n✅ Data has been updated and saved as {handle_data.output_file_path}!")
@@ -32,6 +35,8 @@ def main():
     start_button.grid(column=0, row=1)
 
     def on_closing():
+        if handle_data is not None:
+            handle_data.shutdown()
         executor.shutdown(wait=False)
         root.destroy()
 
