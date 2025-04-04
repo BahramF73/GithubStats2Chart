@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime, timedelta
 
@@ -142,9 +143,11 @@ class HandleData:
             converter.save(df)
         self.g.close()  # Close the GitHub API client
 
-    def shutdown(self):
+    def stop(self):
         """
-        Gracefully shut down the data handler by stopping ongoing processes.
+        Stop the data handler by setting the running flag to False.
         """
+        logging.info("Stopping data handler...")
         self.app_is_running = False  # Set the running flag to False
         self.g.close()  # Close the GitHub API client
+        

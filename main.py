@@ -4,6 +4,7 @@ from data_processor import HandleData
 
 # Global variable to hold the HandleData instance
 handle_data: HandleData = None
+app_is_running: bool = False  # Flag to indicate if the application is running
 
 # Function to run the data handling process
 def run_handle_data(input_file, output_file):
@@ -41,23 +42,33 @@ def main():
     overwrite_check.grid(column=0, row=0)  # Place the checkbox in the grid
 
     # Create a ThreadPoolExecutor for running tasks in the background
-    executor = concurrent.futures.ThreadPoolExecutor()
+    executor = concurrent.futures.ThreadPoolExecutor(thread_name_prefix="daemon")
 
     # Function to handle the "Start" button click
-    def on_start():
+    def on_start_stop():
         """
-        Starts the data processing task when the "Start" button is clicked.
+        Starts and stop the data processing task when the button is clicked.
         """
-        input_file = "Book1"  # Default input file name
-        output_file = "Book1 new"  # Default output file name
-        # If "Overwrite" is checked, use the input file name as the output file name
-        if overwrite_var.get():
-            output_file = input_file
-        # Start the data processing task
-        start_data_processing(executor, input_file, output_file)
+        global handle_data, app_is_running
+        if app_is_running:
+            # If the process is already running, stop it
+            handle_data.stop()
+            handle_data = None
+            app_is_running = False
+            start_button.config(text="Start")
+        else:
+            app_is_running = True
+            start_button.config(text="Stop")  # Change button text to "Stop"
+            input_file = "Book1"  # Default input file name
+            output_file = "Book1 new"  # Default output file name
+            # If "Overwrite" is checked, use the input file name as the output file name
+            if overwrite_var.get():
+                output_file = input_file
+            # Start the data processing task
+            start_data_processing(executor, input_file, output_file)
 
     # Create a "Start" button and bind it to the on_start function
-    start_button = Button(frm, text="Start", command=on_start)
+    start_button = Button(frm, text="Start", command=on_start_stop)
     start_button.grid(column=0, row=1)  # Place the button in the grid
 
     # Function to handle the application closing event
@@ -67,7 +78,7 @@ def main():
         """
         if handle_data is not None:
             # Call the shutdown method of HandleData if it exists
-            handle_data.shutdown()
+            handle_data.stop()
         # Shut down the ThreadPoolExecutor
         executor.shutdown(wait=False)
         # Destroy the Tkinter window
