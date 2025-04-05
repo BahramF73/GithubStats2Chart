@@ -1,139 +1,152 @@
 import sys
-import concurrent.futures
-from tkinter import Tk, ttk, BooleanVar, Checkbutton, Button, StringVar, Entry, Text
+from PyQt6.QtWidgets import (
+    QApplication, QMainWindow, QVBoxLayout, QCheckBox, QPushButton, QLineEdit, QWidget
+)
+from PyQt6.QtCore import QThread, pyqtSignal
+
 from data_processor import HandleData
 
-# Global variable to hold the HandleData instance
-handle_data: HandleData = None
-app_is_running: bool = False  # Flag to indicate if the application is running
 
-class TextRedirector:
+class StreamToTextEdit:
     """
-    A class to redirect stdout to a Tkinter Text widget, showing only the latest line.
+    Custom stream class to redirect stdout and stderr to a QLineEdit.
     """
-    def __init__(self, text_widget):
-        self.text_widget = text_widget
+    def __init__(self, text_edit):
+        self.text_edit = text_edit
 
-    def write(self, text):
-        if text.strip():  # Only update if there's actual text
-            self.text_widget.delete("1.0", "end")  # Clear the widget
-            self.text_widget.insert("end", text.strip())  # Insert the latest text
-            self.text_widget.see("end")  # Scroll to the end
+    def write(self, message):
+        if message.strip():  # Avoid writing empty lines
+            self.text_edit.setText(message)
 
     def flush(self):
-        pass  # Required for compatibility with Python's stdout
+        pass  # Required for compatibility with sys.stdout and sys.stderr
 
-# Function to run the data handling process
-def run_handle_data(input_file, output_file, start_button, status_var):
-    """
-    Initializes the HandleData instance and saves the processed data.
-    """
-    global handle_data
-    try:
-        # Create a HandleData instance with the given input and output file paths
-        handle_data = HandleData(input_file_path=input_file, output_file_path=output_file)
-        # Save the processed data
-        handle_data.save_data()
-        # Print a success message
-        print(f"✅ Data has been updated and saved as {handle_data.output_file_path}!")
-    except Exception as e:
-        print(f"❌ An error occurred: {e}")
-    finally:
-        # Update the button text and status after processing is complete
-        start_button.config(text="Start")
-        status_var.set("Ready")
 
-# Function to start the data processing in a separate thread
-def start_data_processing(executor, input_file, output_file, start_button, status_var):
+class WorkerThread(QThread):
     """
-    Submits the data processing task to the ThreadPoolExecutor.
+    Worker thread to handle data processing in the background.
     """
-    executor.submit(run_handle_data, input_file, output_file, start_button, status_var)
-    
-# Main function to set up the GUI and application logic
+    status_signal:pyqtSignal = pyqtSignal(str)
+
+    def __init__(self, input_file, output_file, overwrite):
+        super().__init__()
+        self.input_file = input_file
+        self.output_file = output_file
+        self.overwrite = overwrite
+        self.handle_data = None
+
+    def run(self):
+        try:
+            # Create a HandleData instance and process the data
+            self.handle_data = HandleData(
+                input_file_path=self.input_file,
+                output_file_path=self.output_file if not self.overwrite else self.input_file
+            )
+            print(f"Processing data from {self.input_file} to {self.output_file}...")
+            self.handle_data.save_data()
+
+            # Emit a success message
+            self.status_signal.emit(f"✅ Data saved as {self.handle_data.output_file_path}!")
+        except Exception as e:
+            # Emit an error message
+            self.status_signal.emit(f"❌ Error: {e}")
+        finally:
+            # Emit a ready message
+            self.status_signal.emit("")
+
+
+def update_status(message):
+    """
+    Updates the output text box.
+    """
+    print(message)  # Redirected to the QLineEdit
+
+
+class MainWindow(QMainWindow):
+    """
+    Main application window.
+    """
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("GithubStats2Chart")
+        self.worker_thread = None
+        self.setMinimumSize(250,250)
+        self.setMaximumSize(750,450)
+
+        # Main layout
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+        self.layout = QVBoxLayout(self.central_widget)
+
+        # Overwrite checkbox
+        self.overwrite_checkbox = QCheckBox("Overwrite")
+        self.layout.addWidget(self.overwrite_checkbox)
+
+        # Output text box
+        self.output_text = QLineEdit()
+        self.output_text.setReadOnly(True)
+        self.layout.addWidget(self.output_text)
+
+        # Redirect stdout and stderr to the QLineEdit
+        sys.stdout = StreamToTextEdit(self.output_text)
+        sys.stderr = StreamToTextEdit(self.output_text)
+
+        # Start/Stop button
+        self.start_button:QPushButton = QPushButton("Start")
+        self.start_button.clicked.connect(self.on_start_stop)
+        self.layout.addWidget(self.start_button)
+
+        # Track application state
+        self.app_is_running = False
+
+    def on_start_stop(self):
+        """
+        Handles the Start/Stop button click.
+        """
+        if self.app_is_running:
+            # Stop the worker thread
+            if self.worker_thread and self.worker_thread.isRunning():
+                self.worker_thread.terminate()
+            self.reset_ui()
+        else:
+            # Start the worker thread
+            self.app_is_running = True
+            self.start_button.setText("Stop")
+
+            input_file = "Book1"
+            output_file = "Book1 new"
+            overwrite = self.overwrite_checkbox.isChecked()
+
+            self.worker_thread = WorkerThread(input_file, output_file, overwrite)
+            self.worker_thread.status_signal.connect(update_status)
+            self.worker_thread.finished.connect(self.reset_ui)  # Reset UI when thread finishes
+            self.worker_thread.start()
+
+    def reset_ui(self):
+        """
+        Resets the UI elements after the process is complete or stopped.
+        """
+        self.app_is_running = False
+        self.start_button.setText("Start")
+
+    def closeEvent(self, event):
+        """
+        Handles the application close event.
+        """
+        if self.worker_thread and self.worker_thread.isRunning():
+            self.worker_thread.terminate()
+        event.accept()
+
+
 def main():
     """
-    Sets up the Tkinter GUI and handles application logic.
+    Entry point of the application.
     """
-    root = Tk()  # Create the main Tkinter window
-    root.title("GithubStats2Chart")  # Set the window title
-    frm = ttk.Frame(root, padding=10, height=100, width=400)  # Create a frame for layout
-    frm.grid()  # Add the frame to the window
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())
 
-    # Boolean variable to track the "Overwrite" checkbox state
-    overwrite_var = BooleanVar()
-    # Create a checkbox for the "Overwrite" option
-    overwrite_check = Checkbutton(frm, text="Overwrite", variable=overwrite_var)
-    overwrite_check.grid(column=0, row=0)  # Place the checkbox in the grid
 
-    # Create a StringVar to hold the status text
-    status_var = StringVar()
-    status_var.set("Ready")  # Set the initial status text
-
-    # Create a one-line text box to display the status
-    status_entry = Entry(frm, textvariable=status_var, state="readonly", width=50)
-    status_entry.grid(column=0, row=1, columnspan=2)  # Place the text box in the grid
-
-    # Create a single-line text box to display terminal output
-    output_text = Text(frm, height=1, width=50, state="normal", wrap="none")
-    output_text.grid(column=0, row=3, columnspan=2)  # Place the text box in the grid
-
-    # Redirect stdout to the Text widget
-    sys.stdout = TextRedirector(output_text)
-
-    # Create a ThreadPoolExecutor for running tasks in the background
-    executor = concurrent.futures.ThreadPoolExecutor(thread_name_prefix="daemon")
-
-    # Function to handle the "Start" button click
-    def on_start_stop():
-        """
-        Starts and stops the data processing task when the button is clicked.
-        """
-        global handle_data, app_is_running
-        if app_is_running:
-            # If the process is already running, stop it
-            handle_data.stop()
-            handle_data = None
-            app_is_running = False
-            start_button.config(text="Start")
-            status_var.set("Stopped")  # Update the status text
-        else:
-            app_is_running = True
-            start_button.config(text="Stop")  # Change button text to "Stop"
-            input_file = "Book1"  # Default input file name
-            output_file = "Book1 new"  # Default output file name
-            # If "Overwrite" is checked, use the input file name as the output file name
-            if overwrite_var.get():
-                output_file = input_file
-            # Start the data processing task
-            status_var.set("Processing...")
-            start_data_processing(executor, input_file, output_file, start_button, status_var)
-
-    # Create a "Start" button and bind it to the on_start function
-    start_button = Button(frm, text="Start", command=on_start_stop)
-    start_button.grid(column=0, row=2)  # Place the button in the grid
-
-    # Function to handle the application closing event
-    def on_closing():
-        """
-        Handles cleanup when the application window is closed.
-        """
-        if handle_data is not None:
-            # Call the shutdown method of HandleData if it exists
-            handle_data.stop()
-        # Shut down the ThreadPoolExecutor
-        executor.shutdown(wait=False)
-        # Restore stdout to its original state
-        sys.stdout = sys.__stdout__
-        # Destroy the Tkinter window
-        root.destroy()
-
-    # Bind the on_closing function to the window close event
-    root.protocol("WM_DELETE_WINDOW", on_closing)
-
-    # Start the Tkinter main loop
-    root.mainloop()
-
-# Entry point of the application
 if __name__ == "__main__":
     main()
