@@ -102,14 +102,14 @@ class HandleData:
                 # Get clone traffic data for the repository
                 clone_data = repo.get_clones_traffic(per="day")
                 if not clone_data or "clones" not in clone_data.raw_data:
-                    print(f"  ->  -> ⚠ Clone data for {repo.name} is not available. <-  <-")
+                    print(f"⚠ Clone data for {repo.name} is not available.")
                     continue
 
                 # Create a dictionary of clone counts by date
                 clone_count = {str(data["timestamp"])[:10]: data["count"] for data in clone_data.raw_data["clones"]}
                 if repo.name not in df.index:
                     # Add new repositories to the DataFrame
-                    print(f"  ->  -> ⚠ New repository ({repo.name}) detected, updating data... <-  <-")
+                    print(f"⚠ New repository ({repo.name}) detected, updating data...")
                     df.loc[repo.name] = 0
 
                 # Update the repository data in the DataFrame
@@ -122,7 +122,7 @@ class HandleData:
 
             except Exception as e:
                 # Handle errors during data retrieval
-                print(f"  ->  -> ❌ Error retrieving data for {repo.name}: {e} <-  <-")
+                print(f"❌ Error retrieving data for {repo.name}: {e}")
         return df
 
     def save_data(self):
