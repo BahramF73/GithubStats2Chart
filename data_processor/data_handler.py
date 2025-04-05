@@ -142,6 +142,8 @@ class HandleData:
             converter = ConvertData(format_=self.format_, output_file_path=f"{self.output_file_path}")
             converter.save(df)
         self.g.close()  # Close the GitHub API client
+        return df
+
 
     def stop(self):
         """
