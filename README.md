@@ -2,7 +2,7 @@
 
 A Python tool that collects GitHub repository traffic data, including clones (and later, views), and saves them in an Excel spreadsheet for tracking and analysis.
 
-## 🔵 Current Features
+## ✅ Current Features
 
 📊 Retrieves clone statistics for public repositories
 
