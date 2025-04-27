@@ -3,7 +3,7 @@ import pandas as pd
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QCheckBox, QPushButton, QLineEdit, QWidget, QTableWidget, QTableWidgetItem, QHBoxLayout
 )
-from PyQt6.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import QThread, pyqtSignal, QPoint
 
 from data_processor import HandleData
 
@@ -68,7 +68,11 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("GithubStats2Chart")
         self.worker_thread = None
-        self.setMinimumSize(250, 250)
+        self.q_point=QPoint()
+        self.q_point.setX(self.q_point.x()+100)
+        self.q_point.setY(self.q_point.y()+100)
+        self.move(self.q_point)
+        self.setMinimumSize(750, 350)
 
         # Main layout
         self.central_widget = QWidget()
