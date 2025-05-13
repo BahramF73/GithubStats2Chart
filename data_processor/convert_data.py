@@ -21,7 +21,14 @@ class ConvertData:
             ValueError: If the provided format is not supported.
         """
         self.format_ = format_  # File format (CSV or Excel)
-        self.output_file_path = output_file_path  # Path to save the output file
+
+        # Ensure the output path has the correct extension only once
+        extension = str(format_)
+        if not output_file_path.endswith(extension):
+            output_file_path += extension  # Append the extension if it's missing
+
+        self.output_file_path = output_file_path  # Final output file path with correct extension
+
         # Validate the format
         if not (format_ == formats.CSV or format_ == formats.EXCEL):
             raise ValueError("Invalid format!")  # Raise an error for unsupported formats
@@ -34,7 +41,7 @@ class ConvertData:
             df (pandas.DataFrame): The DataFrame to be saved.
         """
         # 🖫 Save Data as CSV file
-        df.to_csv(f"{self.output_file_path}")
+        df.to_csv(self.output_file_path)
 
     def __save_excel__(self, df):
         """
@@ -44,7 +51,7 @@ class ConvertData:
             df (pandas.DataFrame): The DataFrame to be saved.
         """
         # 🖫 Save Data as Excel file
-        df.to_excel(f"{self.output_file_path}")
+        df.to_excel(self.output_file_path)
 
     def save(self, df):
         """

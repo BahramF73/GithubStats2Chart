@@ -22,28 +22,42 @@ class HandleData:
     This Library gets data from GitHub and provides a pandas.DataFrame of Clones or Views.
     """
 
-    def __init__(self, input_file_path: str = "", output_file_path: str = "output", format_: Formats = formats.CSV, token: str = None,
-                 period: int = 13):
+    def __init__(self, input_file_path: str = "", output_file_path: str = "output",
+                 format_: Formats = formats.CSV, token: str = None, period: int = 13):
         """
         Parameters:
-            input_file_path (str): Path of existing data.
-            output_file_path (str): Path of where your data will be saved.
+            input_file_path (str): Path of existing data. The appropriate extension will be added if missing.
+            output_file_path (str): Path of where your data will be saved. The appropriate extension will be added if missing.
+            format_ (Formats): The format to use for input/output (e.g., .csv).
             token (str): Your GitHub Token.
             period (int): The period you want to get data for (default is 13). '1 <= period <= 14'.
 
         Returns:
             None: This function does not return any value.
         """
-        self.input_file_path = f"{input_file_path}{format_}"  # Input file path with format
-        self.output_file_path = f"{output_file_path}{format_}"  # Output file path with format
+        self.format_ = format_  # Save the desired format (e.g., .csv)
+        extension = str(self.format_)  # Convert the format enum to string, e.g., ".csv"
+
+        # Ensure the input path ends with the correct extension only once
+        if not input_file_path.endswith(extension):
+            input_file_path += extension
+
+        # Ensure the output path ends with the correct extension only once
+        if not output_file_path.endswith(extension):
+            output_file_path += extension
+
+        self.input_file_path = input_file_path  # Full input file path with correct format
+        self.output_file_path = output_file_path  # Full output file path with correct format
+
         self.token = token
-        self.format_ = format_
         if self.token is None:
-            self.token = check_env()  # Load token from environment if not provided
+            # Load token from environment if not provided explicitly
+            self.token = check_env()
             if self.token is None:
                 print("No token found")
-        self.auth = Auth.Token(self.token)  # Authenticate with GitHub
-        self.g = Github(auth=self.auth)  # Create a GitHub API client
+
+        self.auth = Auth.Token(self.token)  # Authenticate with GitHub using the token
+        self.g = Github(auth=self.auth)  # Create a GitHub API client instance
         self.period = period  # Period for retrieving data
         self.app_is_running = True  # Flag to indicate if the application is running
 
@@ -152,4 +166,3 @@ class HandleData:
         logging.info("Stopping data handler...")
         self.app_is_running = False  # Set the running flag to False
         self.g.close()  # Close the GitHub API client
-        

@@ -1,16 +1,19 @@
 import sys
 import pandas as pd
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QVBoxLayout, QCheckBox, QPushButton, QLineEdit, QWidget, QTableWidget, QTableWidgetItem, QHBoxLayout
+    QApplication, QMainWindow, QVBoxLayout, QCheckBox, QPushButton, QLineEdit, QWidget, QTableWidget, QTableWidgetItem,
+    QHBoxLayout, QFileDialog
 )
 from PyQt6.QtCore import QThread, pyqtSignal, QPoint
 
 from data_processor import HandleData
 
+
 class StreamToTextEdit:
     """
     Custom stream class to redirect stdout and stderr to a QLineEdit.
     """
+
     def __init__(self, text_edit):
         self.text_edit = text_edit
 
@@ -21,6 +24,7 @@ class StreamToTextEdit:
     def flush(self):
         pass  # Required for compatibility with sys.stdout and sys.stderr
 
+
 class WorkerThread(QThread):
     """
     Worker thread to handle data processing in the background.
@@ -28,11 +32,10 @@ class WorkerThread(QThread):
     status_signal: pyqtSignal = pyqtSignal(str)
     data_signal: pyqtSignal = pyqtSignal(pd.DataFrame)
 
-    def __init__(self, input_file, output_file, overwrite):
+    def __init__(self, input_file, output_file):
         super().__init__()
         self.input_file = input_file
         self.output_file = output_file
-        self.overwrite = overwrite
         self.handle_data = None
 
     def run(self):
@@ -40,7 +43,7 @@ class WorkerThread(QThread):
             # Create a HandleData instance and process the data
             self.handle_data = HandleData(
                 input_file_path=self.input_file,
-                output_file_path=self.output_file if not self.overwrite else self.input_file
+                output_file_path=self.output_file
             )
             print(f"Processing data from {self.input_file} to {self.output_file}...")
 
@@ -54,23 +57,28 @@ class WorkerThread(QThread):
             # Emit an error message
             self.status_signal.emit(f"❌ Error: {e}")
 
+
 def update_status(message):
     """
     Updates the output text box.
     """
     print(message)  # Redirected to the QLineEdit
 
+
 class MainWindow(QMainWindow):
     """
     Main application window.
     """
+
     def __init__(self):
         super().__init__()
+        self.input_file_path = None
+        self.file_dialog = None
         self.setWindowTitle("GithubStats2Chart")
         self.worker_thread = None
-        self.q_point=QPoint()
-        self.q_point.setX(self.q_point.x()+100)
-        self.q_point.setY(self.q_point.y()+100)
+        self.q_point = QPoint()
+        self.q_point.setX(self.q_point.x() + 100)
+        self.q_point.setY(self.q_point.y() + 100)
         self.move(self.q_point)
         self.setMinimumSize(750, 350)
 
@@ -79,9 +87,18 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.central_widget)
         self.layout = QVBoxLayout(self.central_widget)
 
-        # Overwrite checkbox
-        self.overwrite_checkbox = QCheckBox("Overwrite")
-        self.layout.addWidget(self.overwrite_checkbox)
+        # File handler layout
+        self.file_layout = QHBoxLayout()
+        self.layout.addLayout(self.file_layout)
+
+        # Input file button
+        self.input_file_button = QPushButton("Choose a file")
+        self.input_file_button.clicked.connect(self.open_file_dialog)
+        self.file_layout.addWidget(self.input_file_button)
+
+        # Output file name
+        self.output_file_name = QLineEdit()
+        self.file_layout.addWidget(self.output_file_name)
 
         # Output text box
         self.output_text = QLineEdit()
@@ -126,13 +143,22 @@ class MainWindow(QMainWindow):
             # Start the worker thread
             self.app_is_running = True
             self.start_button.setText("Stop")
-            self.overwrite_checkbox.setDisabled(True)
+            self.input_file_button.setDisabled(True)
+            input_file = getattr(self, 'input_file_path', None)
+            if not input_file:
+                print("❌ No input file chosen.")
+                self.reset_ui()
+                return
 
-            input_file = "Book1"
-            output_file = "Book1 new"
-            overwrite = self.overwrite_checkbox.isChecked()
+            output_file = self.output_file_name.text().strip()
+            if not output_file:
+                print("❌ Output file name is empty. Please provide a file name.")
+                self.reset_ui()
+                return
 
-            self.worker_thread = WorkerThread(input_file, output_file, overwrite)
+            print(f"Output will be saved to: {output_file}")
+
+            self.worker_thread = WorkerThread(input_file, output_file)
             self.worker_thread.status_signal.connect(update_status)
             self.worker_thread.data_signal.connect(self.update_table)
             self.worker_thread.finished.connect(self.reset_ui)  # Reset UI when thread finishes
@@ -157,7 +183,7 @@ class MainWindow(QMainWindow):
         """
         self.app_is_running = False
         self.start_button.setText("Start")
-        self.overwrite_checkbox.setDisabled(False)
+        self.input_file_button.setDisabled(False)
 
     def closeEvent(self, event):
         """
@@ -167,6 +193,22 @@ class MainWindow(QMainWindow):
             self.worker_thread.terminate()
         event.accept()
 
+    def open_file_dialog(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Open File", "", "All Files (*)")
+        if file_path:
+            self.input_file_path = file_path  # Save for later use
+            print(f"Selected file: {file_path}")
+
+            # Auto-fill output file name only if it's empty
+            if not self.output_file_name.text().strip():
+                import os
+                base_name = os.path.splitext(os.path.basename(file_path))[0]
+                dir_name = os.path.dirname(file_path)
+                # Default to .csv as extension
+                output_path = os.path.join(dir_name, f"{base_name}.csv")
+                self.output_file_name.setText(output_path)
+
+
 def main():
     """
     Entry point of the application.
@@ -175,6 +217,7 @@ def main():
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
+
 
 if __name__ == "__main__":
     main()
